@@ -6,29 +6,41 @@ let startGame = false;
 let gameOver = false;
 let timeCount = 0;
 let score = 0;
+let startAngle = 0;
 
 let walls = [];
 let clouds = [];
 let bullets = [];
 let explosions = [];
 let powerUps = [];
-
+let buildings = [];
+let bushes = [];
 
 // MAIN FUNCTIONS
 
 
 async function setup() {
   createCanvas(600, 800);
+  //initial data required:
   player = new Player(width / 4 - 50, height / 2);
-  photo = await loadImage("brokenWall.jpg");
-  brickPile = await loadImage("brickPile.png");
-  //bg = await loadImage("background.jpg");
-  sound = await loadSound("OPS.mp3");
+  for(let i = 0; i <= width; i += 50){
+    buildings.push(new BgBuilding(i, 300));
+  }
+  for(let i = 0; i <= width; i+= 100){
+    bushes.push(new Bush(i, height - 25));
+  }
+  // load assets:
+  photo = await loadImage("pictures/brokenWall.jpg");
+  brickPile = await loadImage("pictures/brickPile.png");
+  sound = await loadSound("audio-files/OPS.mp3");
+  expSound = await loadSound("audio-files/explosion.mp3");
 }
 
 function draw() {
   background("#b8e0ff");
-  //image(bg, 0, 0, width, height);
+  if(!startGame) {
+    updateSurroundings();
+  }
   if (startGame || gameOver) {
     updateAndRenderGame();
   } else {
@@ -38,7 +50,7 @@ function draw() {
 
 function mousePressed() {
   if (startGame) {
-    player.changeVel(-8);
+    player.changeVel(-7);
     player.changeFlameSize([40, 45]);
   } else if (gameOver) {
     restart();
@@ -67,16 +79,91 @@ function restart() {
   powerUps = [];
   timeCount = 0;
   score = 0;
+  startAngle = 0;
+  buildings = [];
+  bushes = [];
+  for(let i = 0; i <= width; i += 50){
+    buildings.push(new BgBuilding(i, 300));
+  }
+  for(let i = 0; i <= width; i+= 100){
+    bushes.push(new Bush(i, height - 25));
+  }
 }
 
 
 // MAIN GAME LOOP & RENDER HELPERS
+function updateSurroundings(){
+  if(timeCount % 50 == 0){
+    buildings.push(new BgBuilding(width + 50, 300));
+  }
+
+  if(timeCount % 100 == 0){
+    bushes.push(new Bush(width + 100, height -25));
+  }
+
+  //update and render background:
+  for (let i = buildings.length - 1; i >= 0; i--){
+    buildings[i].show();
+    if (!gameOver){
+      buildings[i].move();
+    } 
+
+    let bgBx = buildings[i].getPos().x;
+    if(bgBx <= -50){
+      buildings.splice(i, 1);
+    }
+  }
+
+  // Render the bushes
+  for(let i = bushes.length - 1; i > 0; i--){
+    bushes[i].show();
+    if(!gameOver){
+      bushes[i].move();
+    }
+
+    if(bushes[i].getPos().x <= -100){
+      bushes.splice(i, 1);
+    }
+  }
+
+  // Render the ground
+  push();
+  stroke(0);
+  fill("#22ac00");
+  rect(0, height - 20, width, 20);
+  pop()
+
+  timeCount ++;
+}
 
 function updateAndRenderGame() {
   // Spawn walls and clouds periodically
-  if (timeCount % 150 === 0) {
+  if (timeCount % 150 == 0) {
     walls.push(new Wall(width + 100, random(150, height - 150), 150, photo, brickPile));
     clouds.push(new Cloud(width + 100, random(150)));
+  }
+
+  //spawn background buildings
+  if(timeCount % 50 == 0){
+    buildings.push(new BgBuilding(width + 50, 300));
+  }
+
+  // Spawn bushes
+  if(timeCount % 100 == 0){
+    bushes.push(new Bush(width + 100, height -25));
+  }
+
+  //update and render background:
+  for (let i = buildings.length - 1; i >= 0; i--){
+    buildings[i].show();
+    if (!gameOver){
+      buildings[i].move();
+    } 
+
+    let bgBx = buildings[i].getPos().x;
+    if(bgBx <= -50){
+      buildings.splice(i, 1);
+    }
   }
 
   // Update and render clouds
@@ -116,7 +203,7 @@ function updateAndRenderGame() {
     let g = walls[i].getGapSize();
 
     let hitsTopWall = playerY - 17 <= wallY - g/2;
-    let hitsBottomWall = playerY + 35 >= wallY + g/2;
+    let hitsBottomWall = playerY + 40 >= wallY + g/2;
     let overlapsX = playerX + 20 >= wallX && playerX <= wallX + 50;
 
     if ((hitsTopWall || hitsBottomWall) && overlapsX && !wallS) {
@@ -149,6 +236,7 @@ function updateAndRenderGame() {
 
         if (bulletOverlapsX && bulletHitsWall) {
           explosions.push(new Explosion(bx + 45, by + 20));
+          expSound.play();
           bullets.splice(i, 1);
           if(bulletBreaksWall){
             walls[j].breakWall();
@@ -170,12 +258,24 @@ function updateAndRenderGame() {
     }
   }
 
+  // Render the bushes
+  for(let i = bushes.length - 1; i > 0; i--){
+    bushes[i].show();
+    if(!gameOver){
+      bushes[i].move();
+    }
+
+    if(bushes[i].getPos().x <= -100){
+      bushes.splice(i, 1);
+    }
+  }
+
   // Render the ground
   push();
   stroke(0);
-  fill("#488c3b");
+  fill("#22ac00");
   rect(0, height - 20, width, 20);
-  pop();
+  pop()
 
   // Floor collision check
   if (player.getPos()[1]  + 50 >= height - 20) {
@@ -188,7 +288,7 @@ function updateAndRenderGame() {
     player.move();
   }
 
-  // Frame progression & HUD / Game Over overlay
+  // bg variables and score visual
   if (!gameOver) {
     pAngle = 15 + player.getVel();
     timeCount++;
@@ -200,16 +300,25 @@ function updateAndRenderGame() {
     textSize(10);
     text("score: " + score, width - 30, 30);
     pop();
-  } else {
+  } 
+  // game over screen
+  else {
+    fill("#e4dd98");
+    rect(100, 100, width - 200, 400);
+
+    fill("#f5d64c");
+    rect(120, 150, width - 240, 70);
+
     push();
     stroke(0);
     fill(0);
     textAlign(CENTER);
     textSize(50);
     text(" GAME OVER!!", width / 2, height / 4);
+    textSize(80);
+    text(score, width/2, 2*height/5);
     textSize(20);
-    textAlign(LEFT);
-    text("score: " + score, width / 2, height / 2);
+    text("score", width / 2, height / 2);
     text("click to restart", width / 2, height / 2 + 40);
     pop();
     startGame = false;
@@ -218,23 +327,37 @@ function updateAndRenderGame() {
 }
 
 function renderStartScreen() {
+
+  let y = 10 * sin(radians(startAngle));
+
+  push();
+  stroke(0);
+  fill("#22ac00");
+  rect(0, height - 20, width, 20);
+  pop();
+
   push();
   stroke("#f39d39");
   strokeWeight(3);
   fill("#ece055");
   textAlign(CENTER);
   textSize(30);
-  text("FLAPPY BIRD (ROCKETMAN)", width / 2, height / 4);
-  textSize(20);
-  textAlign(LEFT);
-  text("click to start game", width / 2, height / 2);
-
+  text("FLAPPY BIRD (ROCKETMAN)", width / 2 + 20, height / 2 + y);
   push();
-  translate(width / 4, height / 2);
+  translate(width / 4 - 100, height / 2 - 20 + y);
   jetpackMan(0, 0, player.flameSize, player.loaded);
   pop();
 
+  stroke(0);
+  fill("#c9a67e");
+  rect(width / 2 - 10, 3 * height / 4 - 20, 180, 30);
+  textSize(20);
+  textAlign(LEFT);
+  text("click to start game", width / 2, 3 * height / 4);
+
   pop();
+
+  startAngle += 5;
 }
 
 
@@ -301,7 +424,169 @@ function jetpackMan(x, y, fireHeight = [35, 40], ammo = true) {
   rect(x, y + 13, 5, 14);
 }
 
+
 // GAME CLASSES
+
+class Bush {
+  constructor(x, y){
+    this.pos = createVector(x, y);
+    this.v = -2;
+    this.plant = floor(random(4));
+    this.ts = 0;
+  }
+
+  getPos(){
+    return this.pos;
+  }
+
+  move(){
+    this.pos.x += this.v;
+    this.ts++;
+  }
+
+  show(){
+    push();
+    translate(this.pos.x, this.pos.y);
+    noStroke();
+    fill("#025607");
+    switch(this.plant){
+      case 0:
+        ellipse(0, 0, 50)
+        ellipse(-25, 0, 50);
+        ellipse(25, 0, 50);
+        ellipse(-15, -20, 50);
+        ellipse(15, -20, 50);
+        
+        fill("#4441f8");
+        ellipse(-15, -25, 5);
+        ellipse(10, 5, 5);
+        ellipse(5, -2, 5);
+        ellipse(-30, -8, 5);
+        ellipse(20, -15, 5);
+        break;
+      case 1:
+        ellipse(0, 0, 50);
+        ellipse(-25, 0, 50);
+        ellipse(25, 0, 50);
+        ellipse(-50, 0, 50);
+        ellipse(50, 0, 50);
+        ellipse(-10, -25, 50);
+        ellipse(10, -25, 50);
+        break;
+      case 2:
+        ellipse(0, 0, 100);
+        ellipse(50, 0, 100);
+        ellipse(-50, 0, 100);
+        break;
+      case 3:
+        ellipse(0, 0, 50);
+        ellipse(-25, 0, 50);
+        ellipse(25, 0, 50);
+       break
+    }
+    pop();
+  }
+}
+
+class BgBuilding {
+  constructor(x, y){
+    this.pos = createVector(x, y);
+    this.building = floor(random(5));
+  }
+
+  getPos(){
+    return (this.pos);
+  }
+
+  move(){
+    this.pos.x -= 1;
+  }
+
+  show(){
+    push();
+    translate(this.pos.x, this.pos.y);
+    noStroke();
+    fill("#848887");
+    switch(this.building){
+      case 0:
+        rect(-25, 80, 50, height - this.pos.y - 80);
+        rect(-5, 40, 10, 40);
+        rect(-15, 60, 30, 30);
+        fill("#beedff");
+        push();
+        translate(-25, 80);
+        for(let i = 0; i <= 20; i += 20){
+          for(let j = 0; j <= 100 ; j += 40){
+            rect(10 + i, 10 + j, 10, 20);
+          }
+        }
+        pop();
+        break;
+      case 1:
+        rect(-25, -80, 50, height - this.pos.y + 80);
+        rect(-20, -130, 5, 50);
+        rect(-20, -130, 30, 20);
+        fill("#beedff");
+        push();
+        translate(-25, -80);
+        for(let i = 0; i <= 20; i += 20){
+          for(let j = 0; j <= 100 ; j += 40){
+            rect(10 + i, 10 + j, 10, 20);
+          }
+        }
+        pop();
+        break;
+      case 2:
+        rect(-25, 0, 50, height - this.pos.y);
+        rect(-25, -10, 40, 10);
+        rect(-25, -20, 30, 10);
+        rect(-25, -30, 20, 10);
+        rect(-25, -40, 10, 10);
+        fill("#beedff");
+        push();
+        translate(-25, 0);
+        for(let i = 0; i <= 20; i += 20){
+          for(let j = 0; j <= 100 ; j += 40){
+            rect(10 + i, 10 + j, 10, 20);
+          }
+        }
+        pop();
+        break;
+      case 3:
+        rect(-25, -140, 50, height - this.pos.y + 200);
+        rect(-15, -160, 5, 20);
+        rect(-20, -160, 20, 10);
+        rect(-40, -157.5, 20, 5);
+        rect(-40, -159, 3, 8);
+        fill("#beedff");
+        push();
+        translate(-25, -140);
+        for(let i = 0; i <= 20; i += 20){
+          for(let j = 0; j <= 100 ; j += 40){
+            rect(10 + i, 10 + j, 10, 20);
+          }
+        }
+        pop();
+        break;
+      default:
+        rect(-25, 140, 50, height - this.pos.y - 140);
+        rect(-5, 100, 5, 40);
+        rect(-20, 130, 35, 5);
+        rect(-15, 120, 25, 5);
+        rect(-10, 110, 15, 5);
+        fill("#beedff");
+        push();
+        translate(-25, 140);
+        for(let i = 0; i <= 20; i += 20){
+          for(let j = 0; j <= 100 ; j += 40){
+            rect(10 + i, 10 + j, 10, 20);
+          }
+        }
+        pop();
+    }
+    pop();
+  }
+}
 
 class Player {
   constructor(x, y) {
