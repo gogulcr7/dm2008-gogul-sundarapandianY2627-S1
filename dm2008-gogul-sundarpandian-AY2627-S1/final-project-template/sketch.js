@@ -63,7 +63,6 @@ function draw() {
   let azimuth = atan2(dx, dz); // Rotation around the Y-axis
   let polar = atan2(dy, sqrt(dx * dx + dz * dz)); // Tilt up/down
 
-  // Display angles in console or on-screen
   // (use degrees() if your angleMode is DEGREES)
 
   cam.centerX = pos[0];
