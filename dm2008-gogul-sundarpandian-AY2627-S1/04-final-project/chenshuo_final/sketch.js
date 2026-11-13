@@ -5,7 +5,7 @@ let patches = [];
 let lanterns = [];
 let ghosts = [];
 let trees = [];
-let sndAmbient, sndPickup, sndHit;
+let sndAmbient, sndPickup, sndHit, sndGhost;
 let audioStarted = false;
 
 let beeX = 0, beeY = -80, beeZ = 0;
@@ -119,6 +119,7 @@ class Ghost {
       tx = beeX - this.x;
       tz = beeZ - this.z;
       spd = GHOST_CHASE_SPEED;
+      sndGhost.play();
     } else {
       // Wander
       let t = frameCount * 0.005 + this.seed;
@@ -251,6 +252,7 @@ async function setup() {
   sndAmbient = await loadSfx('sounds/andriih-magic-fantasy-fairy-tale-music-601667.mp3');
   sndPickup = await loadSfx('sounds/universfield-magic-spell-02-250240.mp3');
   sndHit = await loadSfx('sounds/freesound_community-hurt_c_08-102842.mp3');
+  sndGhost = await loadSfx('sounds/dragon-studio-ghost-horror-sound-382709.mp3');
 
   // Generate World
   for (let gx = -WORLD_GRID; gx <= WORLD_GRID; gx++) {
