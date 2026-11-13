@@ -32,7 +32,7 @@ const PICKUP_RADIUS = 70;
 
 const GHOST_SCALE = 310;
 const GHOST_COUNT = 4;
-const GHOST_HIT_RADIUS = 100;
+const GHOST_HIT_RADIUS = 80;
 const GHOST_DAMAGE = 120;
 const GHOST_CHASE_SPEED = 4.5;
 const GHOST_WANDER_SPEED = 2;
@@ -51,7 +51,7 @@ const HIT_VOL = 0.8;
 let sensitivity = 0.005;
 let yaw = 0;   // Rotation around Y axis (left/right)
 let pitch = 0.35; // Slight downward angle to start
-let d = 650;   // Distance from the player
+let d = 1500;   // Distance from the player
 let cam;
 let speed = 10;
 let fTiltAngle = 0;
@@ -60,172 +60,6 @@ let sTiltAngle = 0;
 // Game State Flags
 let gameStarted = false;
 let gameOver = false;
-
-class Lantern {
-  constructor() {
-    let ang = random(TWO_PI);
-    let r = random(400, 1500);
-    this.x = constrain(beeX + cos(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
-    this.z = constrain(beeZ + sin(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
-    this.seed = random(1000);
-  }
-  y() {
-    return -50 + sin(frameCount * 0.04 + this.seed) * 12;
-  }
-  centerY() {
-    return this.y() - LANTERN_SCALE * 0.4;
-  }
-  flicker() {
-    return 0.65 + 0.35 * noise(frameCount * 0.03 + this.seed);
-  }
-  distTo(x, z) {
-    return dist(this.x, this.z, x, z);
-  }
-  display() {
-    push();
-    translate(this.x, this.y(), this.z);
-    scale(LANTERN_SCALE);
-    rotateX(PI);
-    texture(lanternTex);
-    model(lanternModel);
-    pop();
-  }
-  displayGlow() {
-    drawHalo(this.x, this.centerY(), this.z, 25, this.flicker());
-  }
-}
-
-class Ghost {
-  constructor() {
-    this.seed = random(1000);
-    this.vx = 0;
-    this.vz = 0;
-    this.respawn();
-  }
-  respawn() {
-    let ang = random(TWO_PI);
-    let r = random(900, 1600);
-    this.x = constrain(beeX + cos(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
-    this.z = constrain(beeZ + sin(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
-  }
-  y() {
-    return -60 + sin(frameCount * 0.05 + this.seed) * 10;
-  }
-  update(difficulty) {
-    let distToBee = dist(this.x, this.z, beeX, beeZ);
-    let tx, tz, spd;
-    if (distToBee < glow * 1.2) {
-      // Chase the bee
-      tx = beeX - this.x;
-      tz = beeZ - this.z;
-      spd = GHOST_CHASE_SPEED;
-      sndGhost.play();
-    } else {
-      // Wander
-      let t = frameCount * 0.005 + this.seed;
-      tx = noise(t) - 0.5;
-      tz = noise(t + 50) - 0.5;
-      spd = GHOST_WANDER_SPEED;
-    }
-    let m = max(dist(0, 0, tx, tz), 0.0001);
-    this.vx = lerp(this.vx, (tx / m) * spd * difficulty, 0.05);
-    this.vz = lerp(this.vz, (tz / m) * spd * difficulty, 0.05);
-    this.x = constrain(this.x + this.vx, -WORLD_LIMIT, WORLD_LIMIT);
-    this.z = constrain(this.z + this.vz, -WORLD_LIMIT, WORLD_LIMIT);
-  }
-  touches() {
-    return dist(this.x, this.z, beeX, beeZ) < GHOST_HIT_RADIUS;
-  }
-  display() {
-    let distToBee = dist(this.x, this.z, beeX, beeZ);
-    let a = map(distToBee, glow * 0.4, glow * 0.9, 255, 0, true);
-    if (a <= 1) return; // Skip rendering if completely invisible
-    push();
-    translate(this.x, this.y(), this.z);
-    rotateY(atan2(this.vx, this.vz) + PI);
-    scale(GHOST_SCALE);
-    rotateX(PI);
-    tint(255, a);
-    texture(lanternTex);
-    model(ghostModel);
-    noTint();
-    pop();
-  }
-}
-
-class Tree {
-  constructor() {
-    let tries = 0;
-    do {
-      this.x = random(-WORLD_LIMIT, WORLD_LIMIT);
-      this.z = random(-WORLD_LIMIT, WORLD_LIMIT);
-      tries++;
-    } while (
-      (dist(this.x, this.z, 0, 0) < 300 ||
-        noise(this.x * 0.002, this.z * 0.002) < TREE_DENSITY) &&
-      tries < 60
-    );
-    this.rot = random(TWO_PI);
-    this.s = TREE_SCALE * random(0.8, 1.4);
-  }
-  display() {
-    push();
-    translate(this.x, 0, this.z);
-    rotateY(this.rot);
-    scale(this.s);
-    rotateX(PI);
-    texture(lanternTex);
-    model(pineModel);
-    pop();
-  }
-}
-
-function drawHalo(x, y, z, size, f) {
-  push();
-  translate(x, y, z);
-  noStroke();
-  for (let i = 1; i <= 6; i++) {
-    fill(255, 180, 60, 18 * f);
-    sphere(size + i * size * 0.4, 16, 12);
-  }
-  pop();
-}
-
-async function loadSfx(path) {
-  try {
-    let s = await loadSound(path);
-    console.log('sound loaded:', path);
-    return s;
-  } catch (e) {
-    console.log('SOUND FAILED:', path);
-    return null;
-  }
-}
-
-function playSfx(s, vol) {
-  if (audioStarted && s) {
-    s.amp(vol);
-    s.play();
-  }
-}
-
-async function initAudio() {
-  if (!audioStarted) {
-    await userStartAudio();
-    audioStarted = true;
-    if (sndAmbient && !sndAmbient.isPlaying()) {
-      sndAmbient.amp(AMBIENT_VOL);
-      sndAmbient.loop();
-    }
-  }
-}
-
-function playBgMusic(){
-  sndAmbient.amp(AMBIENT_VOL);
-  if(!sndAmbient.isPlaying()){
-    sndAmbient.play();
-  }
-}
 
 async function setup() {
   createCanvas(800, 600, WEBGL);
@@ -297,38 +131,6 @@ async function setup() {
       console.log('Theme change clicked!');
     });
   }
-}
-
-function startGame() {
-  gameStarted = true;
-  if (select('#start-screen')) select('#start-screen').addClass('hidden');
-  playBgMusic();
-}
-
-function resetGame() {
-  score = 0;
-  glow = 100;
-  gameFrames = 0;
-  beeX = 0;
-  beeZ = 0;
-  yaw = 0;
-  pitch = 0.35;
-  fTiltAngle = 0;
-  sTiltAngle = 0;
-
-  if (select('#score-display')) select('#score-display').html('Score : ' + score);
-
-  // Re-initialize Lanterns & Ghosts
-  lanterns = [];
-  for (let i = 0; i < LANTERN_COUNT; i++) lanterns.push(new Lantern());
-
-  ghosts = [];
-  for (let i = 0; i < GHOST_COUNT; i++) ghosts.push(new Ghost());
-
-  gameOver = false;
-  gameStarted = true;
-  if (select('#game-over-screen')) select('#game-over-screen').addClass('hidden');
-  playBgMusic();
 }
 
 function draw() {
@@ -435,7 +237,6 @@ function draw() {
     playBgMusic();
   }
 
-  select('#brightness-display').html('Brightness : ' + int(glow));
   renderScene();
 }
 
@@ -515,15 +316,90 @@ function renderScene() {
   for (let l of lanterns) l.displayGlow();
 }
 
+function startGame() {
+  gameStarted = true;
+  if (select('#start-screen')) select('#start-screen').addClass('hidden');
+  playBgMusic();
+}
+
+function resetGame() {
+  score = 0;
+  glow = 100;
+  gameFrames = 0;
+  beeX = 0;
+  beeZ = 0;
+  yaw = 0;
+  pitch = 0.35;
+  fTiltAngle = 0;
+  sTiltAngle = 0;
+
+  if (select('#score-display')) select('#score-display').html('Score : ' + score);
+
+  // Re-initialize Lanterns & Ghosts
+  lanterns = [];
+  for (let i = 0; i < LANTERN_COUNT; i++) lanterns.push(new Lantern());
+
+  ghosts = [];
+  for (let i = 0; i < GHOST_COUNT; i++) ghosts.push(new Ghost());
+
+  gameOver = false;
+  gameStarted = true;
+  if (select('#game-over-screen')) select('#game-over-screen').addClass('hidden');
+  playBgMusic();
+}
+
+function drawHalo(x, y, z, size, f) {
+  push();
+  translate(x, y, z);
+  noStroke();
+  for (let i = 1; i <= 6; i++) {
+    fill(255, 180, 60, 18 * f);
+    sphere(size + i * size * 0.4, 16, 12);
+  }
+  pop();
+}
+
+async function loadSfx(path) {
+  try {
+    let s = await loadSound(path);
+    console.log('sound loaded:', path);
+    return s;
+  } catch (e) {
+    console.log('SOUND FAILED:', path);
+    return null;
+  }
+}
+
+function playSfx(s, vol) {
+  if (audioStarted && s) {
+    s.amp(vol);
+    s.play();
+  }
+}
+
+async function initAudio() {
+  if (!audioStarted) {
+    await userStartAudio();
+    audioStarted = true;
+    if (sndAmbient && !sndAmbient.isPlaying()) {
+      sndAmbient.amp(AMBIENT_VOL);
+      sndAmbient.loop();
+    }
+  }
+}
+
+function playBgMusic(){
+  sndAmbient.amp(AMBIENT_VOL);
+  if(!sndAmbient.isPlaying()){
+    sndAmbient.play();
+  }
+}
+
 function mouseWheel(event) {
   d += event.delta;
   d = constrain(d, 100, 1500);
   return false;
 }
-
-// function keyPressed() {
-//   initAudio();
-// }
 
 // DO NOT REMOVE THIS FUNCTION
 function connectBtnClicked() {
@@ -533,5 +409,124 @@ function connectBtnClicked() {
     } else {
       port.close();
     }
+  }
+}
+
+class Lantern {
+  constructor() {
+    let ang = random(TWO_PI);
+    let r = random(400, 1500);
+    this.x = constrain(beeX + cos(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
+    this.z = constrain(beeZ + sin(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
+    this.seed = random(1000);
+  }
+  y() {
+    return -50 + sin(frameCount * 0.04 + this.seed) * 12;
+  }
+  centerY() {
+    return this.y() - LANTERN_SCALE * 0.4;
+  }
+  flicker() {
+    return 0.65 + 0.35 * noise(frameCount * 0.03 + this.seed);
+  }
+  distTo(x, z) {
+    return dist(this.x, this.z, x, z);
+  }
+  display() {
+    push();
+    translate(this.x, this.y(), this.z);
+    scale(LANTERN_SCALE);
+    rotateX(PI);
+    texture(lanternTex);
+    model(lanternModel);
+    pop();
+  }
+  displayGlow() {
+    drawHalo(this.x, this.centerY(), this.z, 25, this.flicker());
+  }
+}
+
+class Ghost {
+  constructor() {
+    this.seed = random(1000);
+    this.vx = 0;
+    this.vz = 0;
+    this.respawn();
+  }
+  respawn() {
+    let ang = random(TWO_PI);
+    let r = random(900, 1600);
+    this.x = constrain(beeX + cos(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
+    this.z = constrain(beeZ + sin(ang) * r, -WORLD_LIMIT, WORLD_LIMIT);
+  }
+  y() {
+    return -60 + sin(frameCount * 0.05 + this.seed) * 10;
+  }
+  update(difficulty) {
+    let distToBee = dist(this.x, this.z, beeX, beeZ);
+    let tx, tz, spd;
+    if (distToBee < glow * 1.2) {
+      // Chase the bee
+      tx = beeX - this.x;
+      tz = beeZ - this.z;
+      spd = GHOST_CHASE_SPEED;
+      sndGhost.play();
+    } else {
+      // Wander
+      let t = frameCount * 0.005 + this.seed;
+      tx = noise(t) - 0.5;
+      tz = noise(t + 50) - 0.5;
+      spd = GHOST_WANDER_SPEED;
+    }
+    let m = max(dist(0, 0, tx, tz), 0.0001);
+    this.vx = lerp(this.vx, (tx / m) * spd * difficulty, 0.05);
+    this.vz = lerp(this.vz, (tz / m) * spd * difficulty, 0.05);
+    this.x = constrain(this.x + this.vx, -WORLD_LIMIT, WORLD_LIMIT);
+    this.z = constrain(this.z + this.vz, -WORLD_LIMIT, WORLD_LIMIT);
+  }
+  touches() {
+    return dist(this.x, this.z, beeX, beeZ) < GHOST_HIT_RADIUS;
+  }
+  display() {
+    let distToBee = dist(this.x, this.z, beeX, beeZ);
+    let a = map(distToBee, glow * 0.4, glow * 0.9, 255, 80, true);
+    if (a <= 1) return; // Skip rendering if completely invisible
+    push();
+    translate(this.x, this.y(), this.z);
+    rotateY(atan2(this.vx, this.vz) + PI);
+    scale(GHOST_SCALE);
+    rotateX(PI);
+    tint(255, a);
+    texture(lanternTex);
+    model(ghostModel);
+    noTint();
+    pop();
+  }
+}
+
+class Tree {
+  constructor() {
+    let tries = 0;
+    do {
+      this.x = random(-WORLD_LIMIT, WORLD_LIMIT);
+      this.z = random(-WORLD_LIMIT, WORLD_LIMIT);
+      tries++;
+    } while (
+      (dist(this.x, this.z, 0, 0) < 300 ||
+        noise(this.x * 0.002, this.z * 0.002) < TREE_DENSITY) &&
+      tries < 60
+    );
+    this.rot = random(TWO_PI);
+    this.s = TREE_SCALE * random(0.8, 1.4);
+  }
+  display() {
+    push();
+    translate(this.x, 0, this.z);
+    rotateY(this.rot);
+    scale(this.s);
+    rotateX(PI);
+    texture(lanternTex);
+    model(pineModel);
+    pop();
   }
 }
